@@ -1,63 +1,99 @@
 import streamlit as st
 import google.generativeai as genai
 
-# 页面基本设置
-st.set_page_config(page_title="AI 小说情节扩展器", page_icon="✍️")
+# 1. 初始化設定與金鑰
+genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
 
-# 从 Streamlit 的 Secrets 保险箱中安全读取 API Key
-try:
-    API_KEY = st.secrets["GEMINI_API_KEY"]
-    genai.configure(api_key=API_KEY)
-except Exception:
-    st.error("未在 Streamlit 后台配置 GEMINI_API_KEY，请检查高级设置。")
+st.set_page_config(page_title="資深文學作家", layout="wide")
 
-st.title("✍️ 资深文学作家 · 情节扩展器")
-st.write("在下方输入你的灵感或承接上一句，让 AI 运用细腻的电影镜头为你延伸剧情。")
+# 2. 側邊欄：設定角色人設與記憶管理
+with st.sidebar:
+    st.title("⚙️ 創作工作台")
+    
+    st.header("👤 角色設定庫")
+    ml_name = st.text_input("男主角姓名：", placeholder="例如：沈墨", value="")
+    ml_traits = st.text_area("男主角性格/外貌：", placeholder="例如：高冷腹黑、劍眉星目、內心深情...", height=100)
+    
+    st.divider()
+    
+    fl_name = st.text_input("女主角姓名：", placeholder="例如：蘇清微", value="")
+    fl_traits = st.text_area("女主角性格/外貌：", placeholder="例如：活潑開朗、醫術高超、略帶嬌憨...", height=100)
+    
+    st.divider()
+    
+    other_chars = st.text_area("其他配角或世界觀：", placeholder="例如：反派李傲（陰險狡詐）、背景是修仙世界...", height=100)
+    
+    st.divider()
+    
+    if st.button("🗑️ 忘記情節（開新小說）", use_container_width=True):
+        st.session_state.chat_history = []
+        st.rerun()
 
-# 文本输入框
-user_input = st.text_area("💡 请输入当前的场景、提示词或上一轮的最新剧情：", placeholder="例如：他站在门口，看她低头系着围巾...", height=150)
+# 3. 構造系統指令（讓 AI 記住人設）
+system_prompt = f"""
+你是一位資深的文學作家。請嚴格遵守以下角色人設進行創作，確保情節不崩壞：
+【男主角】：{ml_name if ml_name else "未設定"}。性格背景：{ml_traits if ml_traits else "由你發揮"}
+【女主角】：{fl_name if fl_name else "未設定"}。性格背景：{fl_traits if fl_traits else "由你發揮"}
+【其他設定】：{other_chars if other_chars else "無"}
 
-# 点击按钮生成
-if st.button("🚀 细腻延伸情节", type="primary"):
-    if not user_input.strip():
-        st.warning("请先输入一些提示词或上一轮剧情哦！")
+寫作風格：文筆優美，細節豐富，擅長環境描寫與心理刻畫。請根據使用者的指令不斷延續情節。
+"""
+
+# 初始化模型（帶入人設指令）
+model = genai.GenerativeModel(
+    model_name='gemini-2.5-flash',
+    system_instruction=system_prompt
+)
+
+st.title("✍️ 資深文學作家 · 長篇續寫器")
+st.info("💡 提示：在左側設定男女主角人設後，AI 會寫出更精準的互動哦！")
+
+# 4. 記憶保險箱
+if "chat_history" not in st.session_state:
+    st.session_state.chat_history = []
+
+# 5. 畫面顯示小說進度
+st.subheader("📚 小說章節紀錄")
+chat_container = st.container()
+
+with chat_container:
+    if not st.session_state.chat_history:
+        st.write("目前還沒有情節，請在下方輸入開頭或指令。")
     else:
-        with st.spinner("文思泉涌中，请稍候..."):
+        for msg in st.session_state.chat_history:
+            if msg["role"] == "user":
+                with st.chat_message("user", avatar="💡"):
+                    st.write(msg["text"])
+            else:
+                with st.chat_message("assistant", avatar="✍️"):
+                    st.write(msg["text"])
+
+# 6. 與 Gemini 進行記憶連動
+gemini_history = []
+for msg in st.session_state.chat_history:
+    gemini_history.append({
+        "role": "user" if msg["role"] == "user" else "model",
+        "parts": [msg["text"]]
+    })
+
+chat = model.start_chat(history=gemini_history)
+
+# 7. 輸入區
+st.divider()
+user_input = st.text_area("🚀 請輸入接下來的靈感或指令（例如：『請開始第一章，描寫兩人初次見面』）：", height=100)
+
+if st.button("✨ 讓 AI 順著往下寫", type="primary"):
+    if user_input.strip() != "":
+        with st.spinner("AI 正在帶入人設並構思章節..."):
             try:
-                # 使用最新的 Gemini 2.5 Flash 模型
-                model = genai.GenerativeModel('gemini-2.5-flash')
+                response = chat.send_message(user_input)
                 
-                # 将你的核心作家设定完美嵌入到后台
-                prompt = f"""
-                # 核心设定：资深文学作家
-                你是一位具备极高文学素养、善于渲染氛围的资深作家，极其擅长描写伴侣之间自然、真挚、美好的细腻相处。文字风格追求多感官描写（视觉、听觉、触觉、温度），让情感自然流淌。
-
-                ## 一、 铁律：反AI化与禁止复读（最高优先级）
-                1. 严禁原词复读：绝对禁止将用户的“提示词大纲”直接编入正文（例如：输入“很悲伤”，严禁出现“心里很悲伤”，必须转化为具体的动作、环境或心理渲染）。
-                2. 严禁“大纲式”开篇：绝对禁止将提示词原话、核心句型、或者时间地点概述作为文章的第一句。
-                3. 强制“电影镜头”开场与结尾：每一段故事的第一句话/最后一句话必须是具体的细节特写（如：一个细微的动作、物体的材质、某种声音、或空气的温度），采用“镜头拉近”手法直接带入画面，隐去背景概括。每一次开场与结尾都不得相同。
-                4. 用户提供的提示词中，除双引号“ ”内的台词外，其余部分转化为符合当下情境的自然对话进行使用。在必要时对台词进行符合语境的扩充。
-                5. 请在承接用户最后一句话后，不换场景、不跨时间，随机从「心理/肢体动作/环境留白/角色对白」中细腻延伸并立刻切断输出。
-
-                ## 二、 时空强隔离与断点记忆
-                1. 时空唯一性：严格遵循当前情节的【时间/地点】，每轮生成前在心里默念三遍时空设定。
-                2. 线性时间轴：长对话中必须精准记忆每个情节发生的先后顺序，时间变更带来的生理/自然变化必须严格符合常理。
-                3. 拒绝跨时空跳脱：严禁让前后发生的不同情节内容，在没有过渡的情况下出现在同一个时间、同一个地点。
-                4. 【剧情承接最高优先级】：你必须优先且严格顺着用户输入的上一句（最后一轮对话）所发展出的最新剧情和结果往下续写。
-                5. 【禁止剧情倒退】：绝对不许忽略最近一轮对话中发生的新情节、新反转。
-
-                ## 三、 动作、台词与镜头规范
-                1. 物理位置关系：严格遵守人物所处环境的相对位置。若A站位比B高，A必须低头，B必须抬头，动作、视线、物理空间关系必须绝对对齐。
-                2. 拒绝标签化：不允许用概括性词汇直接描绘人物，必须全部通过语言、外貌、动作、环境描写来侧面突出。
-                3. 严禁夸张：男女主的任何动作、神态、语言必须克制自然，严禁任何戏剧化、过分夸张的表达。
-
-                【当前需要承接并延伸的用户输入】：
-                {user_input}
-                """
+                # 儲存到歷史紀錄
+                st.session_state.chat_history.append({"role": "user", "text": user_input})
+                st.session_state.chat_history.append({"role": "model", "text": response.text})
                 
-                response = model.generate_content(prompt)
-                st.success("✨ 延伸完成！")
-                st.markdown("### 📖 续写片段")
-                st.write(response.text)
+                st.rerun()
             except Exception as e:
-                st.error(f"生成出错了，请稍后再试。错误信息: {str(e)}")
+                st.error(f"生成出錯了：{e}")
+    else:
+        st.warning("請先輸入指令喔！")
