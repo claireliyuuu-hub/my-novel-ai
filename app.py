@@ -102,7 +102,7 @@ with st.expander("设定与风格",expanded=True):
 if st.button("🧠 分析参考例文生成文风档案"):
 
     temp=genai.GenerativeModel(
-        "gemini-2.5-pro"
+        "gemini-2.5-flash"
     )
 
     r=temp.generate_content(
