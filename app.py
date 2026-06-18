@@ -4,61 +4,80 @@ import google.generativeai as genai
 # 1. 初始化設定與金鑰
 genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
 
-st.set_page_config(page_title="資深文學作家", layout="wide")
+st.set_page_config(page_title="资深文学作家", layout="wide")
 
-# 2. 側邊欄：設定角色人設與記憶管理
+# 🌟 核心修改：利用 CSS 把網頁上所有小說文字、輸入框的字體調小，完美適配手機螢幕
+st.markdown(
+    """
+    <style>
+    /* 調整小說對話框、文本區域、一般文字的字體大小 */
+    .stChatMessage, .stTextArea textarea, p, li, span {
+        font-size: 14px !important;  /* 您可以根據需要把 14px 改成 13px 或 12px */
+    }
+    /* 調整輸入框標題的字體大小 */
+    .stMarkdown h1, .stMarkdown h2, .stMarkdown h3 {
+        font-size: 20px !important;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True
+)
+
+# 2. 記憶保險箱
+if "chat_history" not in st.session_state:
+    st.session_state.chat_history = []
+
+# 3. 側邊欄：記憶管理
 with st.sidebar:
-    st.title("⚙️ 創作工作台")
-    
-    st.header("👤 角色設定庫")
-    ml_name = st.text_input("男主角姓名：", placeholder="例如：沈墨", value="")
-    ml_traits = st.text_area("男主角性格/外貌：", placeholder="例如：高冷腹黑、劍眉星目、內心深情...", height=100)
-    
-    st.divider()
-    
-    fl_name = st.text_input("女主角姓名：", placeholder="例如：蘇清微", value="")
-    fl_traits = st.text_area("女主角性格/外貌：", placeholder="例如：活潑開朗、醫術高超、略帶嬌憨...", height=100)
-    
-    st.divider()
-    
-    other_chars = st.text_area("其他配角或世界觀：", placeholder="例如：反派李傲（陰險狡詐）、背景是修仙世界...", height=100)
-    
-    st.divider()
-    
-    if st.button("🗑️ 忘記情節（開新小說）", use_container_width=True):
+    st.title("⚙️ 创作控制台")
+    st.write("如果想换全新故事，请点击下方：")
+    if st.button("🗑️ 清空所有故事记忆（开新书）", use_container_width=True):
         st.session_state.chat_history = []
         st.rerun()
 
-# 3. 構造系統指令（讓 AI 記住人設）
-system_prompt = f"""
-你是一位資深的文學作家。請嚴格遵守以下角色人設進行創作，確保情節不崩壞：
-【男主角】：{ml_name if ml_name else "未設定"}。性格背景：{ml_traits if ml_traits else "由你發揮"}
-【女主角】：{fl_name if fl_name else "未設定"}。性格背景：{fl_traits if fl_traits else "由你發揮"}
-【其他設定】：{other_chars if other_chars else "無"}
+st.title("✍️ 资深文学作家 · 长篇续写器")
 
-寫作風格：文筆優美，細節豐富，擅長環境描寫與心理刻畫。請根據使用者的指令不斷延續情節。
+# 4. 頂部：故事基礎設定區（大綱設定）
+st.markdown("### 🎬 故事开镜筹备区")
+st.caption("在开始写作前，请先在这里定义你的世界与主角！")
+
+col1, col2 = st.columns(2)
+with col1:
+    ml_info = st.text_input("👤 男主角设定：", placeholder="例如：沈墨，27岁，高冷腹黑的帝国总裁，内心深情")
+    fl_info = st.text_input("💃 女主角设定：", placeholder="例如：苏清微，24岁，天才外科医生，活泼开朗略带娇憨")
+
+with col2:
+    bg_info = st.text_input("🌌 背景与前提设定：", placeholder="例如：现代豪门、隐婚、女主一开始不知道男主身份")
+    user_style = st.text_input("🎯 你的特定写作要求：", placeholder="例如：多点甜宠互动、节奏要慢...")
+
+# 5. 構造系統指令（🌟 強制 AI 必須用簡體中文輸出）
+system_prompt = f"""
+你是一位资深的文学作家。请严格遵守以下设定进行长篇小说创作：
+【男主角】：{ml_info if ml_info else "由你发挥"}
+【女主角】：{fl_info if fl_info else "由你发挥"}
+【背景前提】：{bg_info if bg_info else "由你发挥"}
+【写作风格与要求】：{user_style if user_style else "文笔优美，细节丰富，擅长环境描写与心理刻画"}
+
+核心要求：
+1. 请必须、绝对完全使用【简体中文（Simplified Chinese）】进行小说正文的创作，不要混杂繁体字。
+2. 请根据使用者的续写指令，不断延续情节，并确保人设与背景绝对不崩溃。
 """
 
-# 初始化模型（帶入人設指令）
+# 初始化模型
 model = genai.GenerativeModel(
     model_name='gemini-2.5-flash',
     system_instruction=system_prompt
 )
 
-st.title("✍️ 資深文學作家 · 長篇續寫器")
-st.info("💡 提示：在左側設定男女主角人設後，AI 會寫出更精準的互動哦！")
+st.divider()
 
-# 4. 記憶保險箱
-if "chat_history" not in st.session_state:
-    st.session_state.chat_history = []
-
-# 5. 畫面顯示小說進度
-st.subheader("📚 小說章節紀錄")
+# 6. 畫面顯示小說進度
+st.subheader("📚 小说章节纪录")
 chat_container = st.container()
 
 with chat_container:
     if not st.session_state.chat_history:
-        st.write("目前還沒有情節，請在下方輸入開頭或指令。")
+        st.info("💡 故事还没开始呢！请在上方填好设定，并在下方输入第一个指令（例如：『请开始写第一章』）来启动故事吧！")
     else:
         for msg in st.session_state.chat_history:
             if msg["role"] == "user":
@@ -68,7 +87,7 @@ with chat_container:
                 with st.chat_message("assistant", avatar="✍️"):
                     st.write(msg["text"])
 
-# 6. 與 Gemini 進行記憶連動
+# 7. 與 Gemini 進行記憶連動
 gemini_history = []
 for msg in st.session_state.chat_history:
     gemini_history.append({
@@ -78,22 +97,23 @@ for msg in st.session_state.chat_history:
 
 chat = model.start_chat(history=gemini_history)
 
-# 7. 輸入區
+# 8. 輸入區（靈感與續寫指令）
 st.divider()
-user_input = st.text_area("🚀 請輸入接下來的靈感或指令（例如：『請開始第一章，描寫兩人初次見面』）：", height=100)
+st.subheader("🚀 下一步情节指令")
+user_input = st.text_area("请输入接下来想发生的剧情或要求（例如：『请开始第一章，写两人在医院初次相遇』）：", height=100)
 
-if st.button("✨ 讓 AI 順著往下寫", type="primary"):
+if st.button("✨ 让 AI 顺着往下写", type="primary"):
     if user_input.strip() != "":
-        with st.spinner("AI 正在帶入人設並構思章節..."):
+        with st.spinner("AI 正在翻阅大纲与前情提要，撰写新章节中..."):
             try:
                 response = chat.send_message(user_input)
                 
-                # 儲存到歷史紀錄
+                # 储存到历史纪录
                 st.session_state.chat_history.append({"role": "user", "text": user_input})
                 st.session_state.chat_history.append({"role": "model", "text": response.text})
                 
                 st.rerun()
             except Exception as e:
-                st.error(f"生成出錯了：{e}")
+                st.error(f"生成出错了：{e}")
     else:
-        st.warning("請先輸入指令喔！")
+        st.warning("请先输入指令喔！")
