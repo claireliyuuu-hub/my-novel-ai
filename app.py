@@ -3,6 +3,20 @@ import google.generativeai as genai
 import json
 import os
 
+# --- 这是一个防崩溃的辅助函数 ---
+def safe_send_message(chat_session, prompt):
+    max_retries = 3
+    for attempt in range(max_retries):
+        try:
+            return chat_session.send_message(prompt)
+        except Exception as e:
+            if "ResourceExhausted" in str(e):
+                st.warning(f"服务器有点忙，正在尝试第 {attempt+1} 次重试...")
+                time.sleep(5)  # 等待 5 秒
+            else:
+                raise e
+    return None
+
 # --- 1. 系统配置 ---
 genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
 st.set_page_config(page_title="深度小说创作引擎", layout="wide")
@@ -98,13 +112,24 @@ c1, c2, c3 = st.columns(3)
 if c1.button("✨ 立即创作"):
     if user_input:
         with st.status("正在进行深度构思...", expanded=True) as status:
-            chat = model.start_chat(history=[{"role": "user" if m["role"] == "user" else "model", "parts": [m["text"]]} for m in st.session_state.chat_history])
-            response = chat.send_message(user_input)
-            st.session_state.chat_history.append({"role": "user", "text": user_input})
-            st.session_state.chat_history.append({"role": "model", "text": response.text})
-            sync_data(st.session_state)
-            status.update(label="✅ 创作完成", state="complete")
+            try:
+                # 建立聊天室
+                chat = model.start_chat(history=[{"role": "user" if m["role"] == "user" else "model", "parts": [m["text"]]} for m in st.session_state.chat_history])
+                
+                # 【核心修改点】：这里不再直接 send_message，而是调用我们上面写的安全函数
+                response = safe_send_message(chat, user_input)
+                
+                if response:
+                    st.session_state.chat_history.append({"role": "user", "text": user_input})
+                    st.session_state.chat_history.append({"role": "model", "text": response.text})
+                    sync_data(st.session_state) # 触发物理保存
+                    status.update(label="✅ 创作完成", state="complete")
+                else:
+                    st.error("重试多次后依然无法连接，请等一分钟再试试。")
+            except Exception as e:
+                st.error(f"发生致命错误: {str(e)}")
         st.rerun()
+
 
 if c2.button("↩️ 撤回上一段"):
     if len(st.session_state.chat_history) >= 2:
