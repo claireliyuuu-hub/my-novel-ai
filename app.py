@@ -1,236 +1,63 @@
 import streamlit as st
 import google.generativeai as genai
-import json
-import os
-import time
+import json,os,time
 
-
-genai.configure(
-    api_key=st.secrets["GEMINI_API_KEY"]
-)
-
+genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
 
 st.set_page_config(
-    page_title="深度文学创作引擎 PRO",
-    layout="wide",
-    initial_sidebar_state="expanded"
+    page_title="文学创作引擎PRO",
+    layout="wide"
 )
-
-
-st.markdown(
-"""
-<style>
-
-.stChatMessage {
-font-size:13px!important;
-line-height:1.8!important;
-}
-
-p,li,span,
-div[data-testid="stMarkdownContainer"] {
-font-size:13px!important;
-line-height:1.8!important;
-}
-
-.stTextArea textarea {
-font-size:14px!important;
-min-height:200px!important;
-}
-
-.stButton>button{
-width:100%;
-}
-
-</style>
-""",
-unsafe_allow_html=True
-)
-
 
 SAVE_FILE="novel_save.json"
 
-
-
 def load_data():
-
     if os.path.exists(SAVE_FILE):
-
         try:
-
-            with open(
-                SAVE_FILE,
-                "r",
-                encoding="utf-8"
-            ) as f:
-
+            with open(SAVE_FILE,"r",encoding="utf-8") as f:
                 return json.load(f)
-
         except:
-
             return {}
-
     return {}
 
-
-
-
-def sync_data(state):
-
+def save_data():
     data={
-
-        "chat_history":
-        state.get("chat_history",[]),
-
-        "ml_info":
-        state.get("ml_info",""),
-
-        "fl_info":
-        state.get("fl_info",""),
-
-        "bg_info":
-        state.get("bg_info",""),
-
-        "user_style":
-        state.get("user_style",""),
-
-        "pre_text":
-        state.get("pre_text",""),
-
-        "bible_info":
-        state.get("bible_info","")
-
+        "chat_history":st.session_state.chat_history,
+        "bible_info":st.session_state.bible_info,
+        "pre_text":st.session_state.pre_text,
+        "style_bible":st.session_state.style_bible,
+        "ml_info":st.session_state.ml_info,
+        "fl_info":st.session_state.fl_info,
+        "bg_info":st.session_state.bg_info
     }
+    with open(SAVE_FILE,"w",encoding="utf-8") as f:
+        json.dump(data,f,ensure_ascii=False,indent=2)
 
-
-    with open(
-        SAVE_FILE,
-        "w",
-        encoding="utf-8"
-    ) as f:
-
-        json.dump(
-            data,
-            f,
-            ensure_ascii=False,
-            indent=4
-        )
-
-
-
-
-# 429保护
-
-def safe_send_message(chat,prompt):
-
+def safe_send(chat,text):
     for i in range(5):
-
         try:
-
-            return chat.send_message(prompt)
-
-
+            return chat.send_message(text)
         except Exception as e:
-
-
-            if (
-                "429" in str(e)
-                or
-                "ResourceExhausted" in str(e)
-            ):
-
-                wait=(i+1)*10
-
-                st.warning(
-                    f"请求过多，等待{wait}秒 ({i+1}/5)"
-                )
-
-                time.sleep(wait)
-
-
+            if "429" in str(e) or "ResourceExhausted" in str(e):
+                time.sleep((i+1)*10)
             else:
-
                 raise e
-
-
     return None
-
-
-
 
 data=load_data()
 
-
 if "chat_history" not in st.session_state:
+    st.session_state.chat_history=data.get("chat_history",[])
+    st.session_state.bible_info=data.get("bible_info","")
+    st.session_state.pre_text=data.get("pre_text","")
+    st.session_state.style_bible=data.get("style_bible","")
+    st.session_state.ml_info=data.get("ml_info","")
+    st.session_state.fl_info=data.get("fl_info","")
+    st.session_state.bg_info=data.get("bg_info","")
 
-    st.session_state.chat_history=data.get(
-        "chat_history",[]
-    )
+st.title("✍️ 文学创作引擎 PRO")
 
-    st.session_state.ml_info=data.get(
-        "ml_info",""
-    )
-
-    st.session_state.fl_info=data.get(
-        "fl_info",""
-    )
-
-    st.session_state.bg_info=data.get(
-        "bg_info",""
-    )
-
-    st.session_state.user_style=data.get(
-        "user_style",""
-    )
-
-    st.session_state.pre_text=data.get(
-        "pre_text",""
-    )
-
-    st.session_state.bible_info=data.get(
-        "bible_info",""
-    )
-
-
-
-
-st.title("✍️ 深度文学创作引擎 PRO")
-
-
-
-with st.sidebar:
-
-    st.header("🛡️ 数据守护中心")
-
-
-    if st.button("📥 导出备份"):
-
-        export=json.dumps(
-            st.session_state.chat_history,
-            ensure_ascii=False
-        )
-
-
-        st.download_button(
-            "下载JSON",
-            export,
-            "backup.json"
-        )
-
-
-
-
-with st.expander(
-    "📚 核心档案与风格学习",
-    expanded=True
-):
-
-
-    st.session_state.bible_info=st.text_area(
-        "核心档案库:",
-        st.session_state.bible_info,
-        height=150
-    )
-
+with st.expander("设定与风格",expanded=True):
 
     st.session_state.pre_text=st.text_area(
         "参考例文:",
@@ -238,9 +65,19 @@ with st.expander(
         height=200
     )
 
+    st.session_state.style_bible=st.text_area(
+        "AI生成的文风档案:",
+        st.session_state.style_bible,
+        height=150
+    )
+
+    st.session_state.bible_info=st.text_area(
+        "剧情档案:",
+        st.session_state.bible_info,
+        height=150
+    )
 
     c1,c2=st.columns(2)
-
 
     st.session_state.ml_info=c1.text_input(
         "男主:",
@@ -257,397 +94,224 @@ with st.expander(
         st.session_state.bg_info
     )
 
-    st.session_state.user_style=c2.text_input(
-        "额外风格:",
-        st.session_state.user_style
+    if st.button("保存"):
+        save_data()
+        st.success("已保存")
+
+
+if st.button("🧠 分析参考例文生成文风档案"):
+
+    temp=genai.GenerativeModel(
+        "gemini-2.5-pro"
     )
 
+    r=temp.generate_content(
+f"""
+分析以下小说例文。
 
-    if st.button("💾 保存"):
+生成文风档案，不续写。
 
-        sync_data(
-            st.session_state
-        )
+总结：
+1叙事视角
+2句式节奏
+3环境描写
+4人物描写
+5对白特点
+6情绪推进
+7语言习惯
 
-        st.success("保存完成")
+例文：
+{st.session_state.pre_text[-10000:]}
+"""
+    )
 
-# ===============================
-# 文学系统
-# ===============================
-
-
-example_text = st.session_state.pre_text[-8000:]
-
+    st.session_state.style_bible=r.text
+    save_data()
+    st.success("文风档案生成完成")
 
 system_prompt=f"""
+你是一名顶级小说作者。
 
-你是一名顶尖小说作者。
+你的任务是输出小说正文，不是解释。
 
-你的任务不是解释，
-而是直接输出小说正文。
-
-
-
-【最高优先级】
-
-用户提供的参考例文，是唯一风格标准。
-
-必须学习：
-
-- 句式
-- 节奏
-- 叙事距离
-- 情绪表达
-- 对白方式
-- 描写密度
-
-
-禁止输出普通AI文章。
-
-禁止改变参考例文气质。
-
-
-
-【用户指令处理规则（最高优先级）】
-
-用户输入的是导演备注，不是小说正文。
-
-严禁：
-
-1. 直接复制用户输入中的句子。
-2. 改几个字后重复用户表达。
-3. 用“他按照要求”“她听到了这些”等方式转述用户指令。
-4. 在正文开头重新解释用户要求。
-
-用户提供的剧情要求只能被吸收为：
-- 情节方向
-- 冲突目标
-- 人物行动目的
-
-不得保留原句结构。
-
-
-例如：
-
-用户：
-“写他雨夜找到她，两个人发生争吵”
-
-错误：
-“雨夜里，他找到她，两个人发生争吵。”
-
-正确：
-“冷雨顺着屋檐坠落，男人站在门前许久，指节抵着冰冷的门板，却迟迟没有敲下去……”
-
-
-
-必须直接进入故事。
-
-
-
-【描写要求】
-
-不能流水账。
-
-必须加入：
-
-环境氛围
-光影声音气味
-动作细节
-微表情
-心理活动
-人物潜台词
-对白冲突
-
-【开篇规则】
-
-正文第一段必须从：
-
-环境
-动作
-感官
-人物状态
-
-之一开始。
-
-禁止从用户要求开始。
+【最高规则】
+用户输入的是导演指令，不是正文。
 
 禁止：
-“他来到了……”
-“按照计划……”
-“此时他决定……”
-等总结式开头。
+1.复制用户提示词原句。
+2.改几个字重复用户表达。
+3.用总结方式复述剧情要求。
+
+用户指令只能转化为：
+剧情方向、人物目的、冲突目标。
+
+正文必须像小说书页。
+
+【禁止AI语言】
+不要出现：
+好的
+以下是
+根据你的要求
+续写如下
+
+【文风规则】
+最高参考：
+
+{st.session_state.style_bible}
+
+参考例文：
+
+{st.session_state.pre_text[-3000:]}
+
+必须保持：
+句式
+节奏
+叙事视角
+描写密度
+对白习惯
+
+【描写要求】
+禁止流水账。
+
+必须加入：
+环境
+声音
+气味
+动作
+微表情
+心理
+潜台词
 
 【人物】
-
-男主:
+男主：
 {st.session_state.ml_info}
 
-
-女主:
+女主：
 {st.session_state.fl_info}
 
-
-背景:
+背景：
 {st.session_state.bg_info}
 
-
-
-【核心档案】
-
+【剧情档案】
 {st.session_state.bible_info}
 
-
-
-【参考例文】
-
-{example_text}
-
-
-
-【额外要求】
-
-{st.session_state.user_style}
-
-
-
-每次正文结束追加：
+结尾追加：
 
 【档案更新】
 
-记录：
+只记录已经发生的事实。
 
-剧情变化
-人物关系
-新增设定
-伏笔
-
-
+禁止写：
+用户要求
+按照要求
+本次续写
 """
-
-
 
 model=genai.GenerativeModel(
     "gemini-2.5-flash",
     system_instruction=system_prompt
 )
 
-
-
-
-
-# ===============================
-# 显示历史
-# ===============================
-
-
 for msg in st.session_state.chat_history[-10:]:
-
     with st.chat_message(
-        "user"
-        if msg["role"]=="user"
-        else "assistant"
+        "user" if msg["role"]=="user" else "assistant"
     ):
-
-        st.markdown(
-            msg["text"]
-        )
-
-
-
-
-
-# ===============================
-# 输入
-# ===============================
+        st.markdown(msg["text"])
 
 
 user_input=st.text_area(
     "✨ 输入剧情要求:",
-    key="input_main",
-    height=200
+    height=180
 )
 
 
 c1,c2,c3=st.columns(3)
 
 
-
-
-
-# ===============================
-# 创作
-# ===============================
-
-
-if c1.button("✨ 立即创作"):
-
+if c1.button("✨立即创作"):
 
     if user_input:
 
+        history=[
+            {
+                "role":"user" if x["role"]=="user" else "model",
+                "parts":[x["text"]]
+            }
+            for x in st.session_state.chat_history[-5:]
+        ]
 
-        with st.status(
-            "正在分析例文并创作...",
-            expanded=True
-        ) as status:
+        chat=model.start_chat(
+            history=history
+        )
 
+        with st.spinner("创作中..."):
 
-            try:
+            response=safe_send(
+                chat,
+                user_input
+            )
 
+        if response:
 
-                history=[
+            text=response.text
 
+            st.session_state.chat_history.append(
+                {
+                "role":"user",
+                "text":user_input
+                }
+            )
+
+            if "【档案更新】" in text:
+
+                body,update=text.split(
+                    "【档案更新】",
+                    1
+                )
+
+                st.session_state.chat_history.append(
                     {
-                        "role":
-                        "user"
-                        if x["role"]=="user"
-                        else "model",
-
-                        "parts":
-                        [x["text"]]
-
+                    "role":"model",
+                    "text":body.strip()
                     }
-
-                    for x in st.session_state.chat_history[-5:]
-
-                ]
-
-
-
-                chat=model.start_chat(
-                    history=history
                 )
 
+                st.session_state.bible_info+="\n"+update.strip()
 
+            else:
 
-                response=safe_send_message(
-                    chat,
-                    user_input
+                st.session_state.chat_history.append(
+                    {
+                    "role":"model",
+                    "text":text
+                    }
                 )
 
-
-                if response:
-
-
-                    result=response.text
+            save_data()
+            st.rerun()
 
 
 
-                    st.session_state.chat_history.append(
-                        {
-                        "role":"user",
-                        "text":user_input
-                        }
-                    )
-
-
-                    if "【档案更新】" in result:
-
-
-                        text,update=result.split(
-                            "【档案更新】",
-                            1
-                        )
-
-
-                        st.session_state.chat_history.append(
-                            {
-                            "role":"model",
-                            "text":text.strip()
-                            }
-                        )
-
-
-                        st.session_state.bible_info += (
-                            "\n"+update.strip()
-                        )
-
-
-                    else:
-
-
-                        st.session_state.chat_history.append(
-                            {
-                            "role":"model",
-                            "text":result
-                            }
-                        )
-
-
-
-                    sync_data(
-                        st.session_state
-                    )
-
-
-                    status.update(
-                        label="✅ 完成",
-                        state="complete"
-                    )
-
-
-                else:
-
-                    st.error(
-                        "没有生成内容"
-                    )
-
-
-
-            except Exception as e:
-
-                st.error(
-                    f"错误:{e}"
-                )
-
-
-        st.rerun()
-
-
-
-
-
-# ===============================
-# 撤回
-# ===============================
-
-
-if c2.button("↩️ 撤回上一段"):
-
+if c2.button("↩️撤回上一段"):
 
     if len(st.session_state.chat_history)>=2:
-
 
         st.session_state.chat_history=(
             st.session_state.chat_history[:-2]
         )
 
-
-        sync_data(
-            st.session_state
-        )
-
+        save_data()
         st.rerun()
 
 
 
-
-
-# ===============================
-# 清空
-# ===============================
-
-
-if c3.button("🗑️ 清空记录"):
-
+if c3.button("🗑️清空"):
 
     if os.path.exists(SAVE_FILE):
-
         os.remove(SAVE_FILE)
 
-
     st.session_state.chat_history=[]
-
     st.session_state.bible_info=""
-
+    st.session_state.style_bible=""
 
     st.rerun()
