@@ -394,7 +394,7 @@ system_prompt=f"""
 
 
 model=genai.GenerativeModel(
-    "gemini-2.5-pro",
+    "gemini-2.5-flash",
     system_instruction=system_prompt
 )
 
