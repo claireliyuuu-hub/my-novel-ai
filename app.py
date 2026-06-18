@@ -65,7 +65,7 @@ system_prompt = f"""
 
 # 初始化模型
 model = genai.GenerativeModel(
-    model_name='gemini-2.5-flash',
+    model_name='gemini-2.5-pro',
     system_instruction=system_prompt
 )
 
