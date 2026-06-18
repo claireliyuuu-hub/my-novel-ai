@@ -1,32 +1,24 @@
 import streamlit as st
 import google.generativeai as genai
 
-# 1. 初始化設定與金鑰
 genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
 
 st.set_page_config(page_title="资深文学作家", layout="wide")
 
-# 🌟 核心修改：注入 CSS 把字體調小，並全面更換為「宋體」
 st.markdown(
     """
     <style>
-    /* 針對小說文字、輸入框、以及網頁所有文本套用宋體 */
-    .stChatMessage, .stTextArea textarea, p, li, span, input, label {
+    .stChatMessage, .stTextArea textarea, p, li, span, input {
         font-size: 14px !important;
-        font-family: "SimSun", "Songti SC", "STSong", "Noto Serif SC", serif !important;
     }
-    /* 調整大標題的字體與大小 */
     .stMarkdown h1, .stMarkdown h2, .stMarkdown h3 {
         font-size: 20px !important;
-        font-family: "SimSun", "Songti SC", "STSong", "Noto Serif SC", serif !important;
-        font-weight: bold !important;
     }
     </style>
     """,
     unsafe_allow_html=True
 )
 
-# 2. 超級記憶保險箱
 if "chat_history" not in st.session_state:
     st.session_state.chat_history = []
 if "ml_info" not in st.session_state:
@@ -38,7 +30,6 @@ if "bg_info" not in st.session_state:
 if "user_style" not in st.session_state:
     st.session_state.user_style = ""
 
-# 3. 側邊欄：記憶管理
 with st.sidebar:
     st.title("⚙️ 创作控制台")
     st.write("如果想换全新故事，请点击下方：")
@@ -52,7 +43,6 @@ with st.sidebar:
 
 st.title("✍️ 资深文学作家 · 长篇续写器")
 
-# 4. 頂部：故事基礎設定區
 st.markdown("### 🎬 故事开镜筹备区")
 st.caption("在开始写作前，请先在这里定义你的世界与主角！")
 
@@ -69,7 +59,6 @@ with col2:
     st.session_state.bg_info = bg_info
     st.session_state.user_style = user_style
 
-# 5. 構造系統指令
 system_prompt = f"""
 你是一位资深的文学作家。请严格遵守以下设定进行长篇小说创作：
 【男主角】：{st.session_state.ml_info if st.session_state.ml_info else "由你发挥"}
@@ -82,7 +71,6 @@ system_prompt = f"""
 2. 请根据使用者的续写指令，不断延续情节，并确保人设与背景绝对不崩溃。
 """
 
-# 初始化模型
 model = genai.GenerativeModel(
     model_name='gemini-2.5-flash', 
     system_instruction=system_prompt
@@ -90,7 +78,6 @@ model = genai.GenerativeModel(
 
 st.divider()
 
-# 6. 畫面顯示小說進度
 st.subheader("📚 小说章节纪录")
 chat_container = st.container()
 
@@ -106,7 +93,6 @@ with chat_container:
                 with st.chat_message("assistant", avatar="✍️"):
                     st.write(msg["text"])
 
-# 7. 與 Gemini 進行記憶連動
 gemini_history = []
 for msg in st.session_state.chat_history:
     gemini_history.append({
@@ -116,7 +102,6 @@ for msg in st.session_state.chat_history:
 
 chat = model.start_chat(history=gemini_history)
 
-# 8. 輸入區（靈感與續寫指令）
 st.divider()
 st.subheader("🚀 下一步情节指令")
 user_input = st.text_area("请输入接下来想发生的剧情或要求：", height=100)
@@ -126,12 +111,10 @@ if st.button("✨ 让 AI 顺着往下写", type="primary"):
         with st.spinner("AI 正在翻阅大纲与前情提要，撰写新章节中..."):
             try:
                 response = chat.send_message(user_input)
-                
-                # 储存到历史纪录
                 st.session_state.chat_history.append({"role": "user", "text": user_input})
                 st.session_state.chat_history.append({"role": "model", "text": response.text})
-                
                 st.rerun()
             except Exception as e:
                 st.error(f"生成出错了：{e}")
     else:
+        st.warning("请先输入指令喔！")
