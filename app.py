@@ -76,7 +76,7 @@ system_prompt = f"""
 【参考例文】：{st.session_state.pre_text}
 """
 
-model = genai.GenerativeModel('gemini-2.5-flash', system_instruction=system_prompt)
+model = genai.GenerativeModel('gemini-2.5-pro', system_instruction=system_prompt)
 
 # 展示记录
 for msg in st.session_state.chat_history:
