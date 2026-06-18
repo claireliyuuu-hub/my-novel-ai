@@ -1,3 +1,6 @@
+
+
+
 import streamlit as st
 import google.generativeai as genai
 import json
@@ -153,29 +156,33 @@ def sync_data(state):
 
 def safe_send_message(chat,prompt):
 
-    for i in range(3):
+    def safe_send_message(chat,prompt):
+
+    max_retry = 5
+
+    for i in range(max_retry):
 
         try:
-
             return chat.send_message(prompt)
+
 
         except Exception as e:
 
-            if "ResourceExhausted" in str(e):
+            if "429" in str(e) or "ResourceExhausted" in str(e):
+
+                wait = 10 * (i + 1)
 
                 st.warning(
-                    f"服务器繁忙，重试 {i+1}/3"
+                    f"请求过多，等待 {wait} 秒后重试 ({i+1}/{max_retry})"
                 )
 
-                time.sleep(5)
+                time.sleep(wait)
 
             else:
-
                 raise e
 
 
     return None
-
 
 
 
@@ -216,7 +223,7 @@ if "chat_history" not in st.session_state:
     )
 
 
-    st.session_state.pre_text = (
+    {st.session_state.pre_text[-8000:]} = (
         data.get("pre_text","")
     )
 
@@ -522,7 +529,7 @@ model = genai.GenerativeModel(
 # ===============================
 
 
-for msg in st.session_state.chat_history[-10:]:
+for m in st.session_state.chat_history[-5:]
 
     with st.chat_message(
         "user"
