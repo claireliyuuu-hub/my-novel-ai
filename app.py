@@ -24,8 +24,8 @@ if st.button("🚀 细腻延伸情节", type="primary"):
     else:
         with st.spinner("文思泉涌中，请稍候..."):
             try:
-                # 使用最新的 Gemini 1.5 Flash 模型
-                model = genai.GenerativeModel('gemini-2.5-pro')
+                # 使用最新的 Gemini 2.5 Flash 模型
+                model = genai.GenerativeModel('gemini-2.5-flash')
                 
                 # 将你的核心作家设定完美嵌入到后台
                 prompt = f"""
