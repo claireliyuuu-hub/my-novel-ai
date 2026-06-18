@@ -3,89 +3,108 @@ import google.generativeai as genai
 import json
 import os
 
+# --- 1. 系统配置 ---
 genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
-st.set_page_config(page_title="资深文学作家", layout="wide")
+st.set_page_config(page_title="深度小说创作引擎", layout="wide")
 
-# 1. CSS 优化：进一步调小手机端文字，增加行间距，更适合阅读
+# 完整 CSS 注入：确保移动端阅读体验
 st.markdown("""
     <style>
-    .stChatMessage, .stTextArea textarea, p, li, span { font-size: 13px !important; line-height: 1.6 !important; }
-    .stTextInput input { font-size: 13px !important; }
+    .stChatMessage, .stTextArea textarea, p, li, span, div[data-testid="stMarkdownContainer"] { 
+        font-size: 13px !important; 
+        line-height: 1.7 !important; 
+    }
+    .stButton>button { width: 100%; }
     </style>
 """, unsafe_allow_html=True)
 
 SAVE_FILE = "novel_save.json"
 
+# --- 2. 稳健的数据持久化层 ---
 def load_data():
     if os.path.exists(SAVE_FILE):
         try:
-            with open(SAVE_FILE, "r", encoding="utf-8") as f: return json.load(f)
-        except: pass
-    return {"chat_history": [], "ml_info": "", "fl_info": "", "bg_info": "", "user_style": "", "pre_text": ""}
+            with open(SAVE_FILE, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except Exception:
+            return {}
+    return {}
 
-def save_data(data):
-    with open(SAVE_FILE, "w", encoding="utf-8") as f: json.dump(data, f, ensure_ascii=False, indent=4)
+def sync_data(state_dict):
+    data_to_save = {
+        "chat_history": state_dict.get("chat_history", []),
+        "ml_info": state_dict.get("ml_info", ""),
+        "fl_info": state_dict.get("fl_info", ""),
+        "bg_info": state_dict.get("bg_info", ""),
+        "user_style": state_dict.get("user_style", ""),
+        "pre_text": state_dict.get("pre_text", "")
+    }
+    with open(SAVE_FILE, "w", encoding="utf-8") as f:
+        json.dump(data_to_save, f, ensure_ascii=False, indent=4)
 
-d = load_data()
+# 初始化加载
+data = load_data()
+if "chat_history" not in st.session_state:
+    st.session_state.chat_history = data.get("chat_history", [])
+    st.session_state.ml_info = data.get("ml_info", "")
+    st.session_state.fl_info = data.get("fl_info", "")
+    st.session_state.bg_info = data.get("bg_info", "")
+    st.session_state.user_style = data.get("user_style", "")
+    st.session_state.pre_text = data.get("pre_text", "")
 
-# 初始化状态
-if "chat_history" not in st.session_state: st.session_state.update(d)
-
-# 2. 自动保存逻辑：定义一个函数，每次变动就调用
-def sync_data():
-    save_data({
-        "chat_history": st.session_state.chat_history,
-        "ml_info": st.session_state.ml_info,
-        "fl_info": st.session_state.fl_info,
-        "bg_info": st.session_state.bg_info,
-        "user_style": st.session_state.user_style,
-        "pre_text": st.session_state.pre_text
-    })
-
+# --- 3. 界面交互 ---
 st.title("✍️ 深度文学创作引擎")
 
-# 3. 增强版前文与设置区
-with st.expander("📚 例文风格学习与人设设置 (自动保存)", expanded=True):
-    st.session_state.pre_text = st.text_area("请贴入你的原文/例文，AI 将分析你的文笔风格进行仿写：", value=st.session_state.pre_text, height=150)
+with st.expander("📚 例文风格学习与人设配置", expanded=False):
+    st.session_state.pre_text = st.text_area("贴入你的原文/例文，AI 将以此为基准进行续写：", value=st.session_state.pre_text, height=120)
     col1, col2 = st.columns(2)
-    st.session_state.ml_info = col1.text_input("男主：", value=st.session_state.ml_info)
-    st.session_state.fl_info = col2.text_input("女主：", value=st.session_state.fl_info)
-    st.session_state.bg_info = col1.text_input("背景：", value=st.session_state.bg_info)
-    st.session_state.user_style = col2.text_input("特殊要求：", value=st.session_state.user_style)
-    if st.button("💾 手动保存设置"): sync_data()
+    st.session_state.ml_info = col1.text_input("男主设定：", value=st.session_state.ml_info)
+    st.session_state.fl_info = col2.text_input("女主设定：", value=st.session_state.fl_info)
+    st.session_state.bg_info = col1.text_input("背景设定：", value=st.session_state.bg_info)
+    st.session_state.user_style = col2.text_input("风格要求：", value=st.session_state.user_style)
+    if st.button("💾 保存所有设置"): 
+        sync_data(st.session_state)
+        st.success("已保存配置到物理磁盘")
 
-# 4. 核心：防套路指令 (注入强力写手人格)
+# --- 4. 创作核心逻辑 ---
 system_prompt = f"""
-你是一位顶尖小说家。你的核心任务是根据【例文风格】续写。
-【例文风格参考】：{st.session_state.pre_text[:8000]}
-【人设】：男主-{st.session_state.ml_info}，女主-{st.session_state.fl_info}
-【背景】：{st.session_state.bg_info}
-
-创作规则 (严格执行)：
-1. 禁止机械化套用提示词，严禁写出类似“以下是续写”的废话。
-2. 必须深入描写细节：运用动作描写、微表情、环境渲染、心理活动来推动情节，禁止“流水账”。
-3. 保持例文的文风、节奏感与情感深度。
-4. 必须使用简体中文。
+你是一位顶尖小说家。请严格遵守以下创作规范：
+1. 风格基准：深度分析用户提供的【例文风格】，模仿其语感、节奏、情感表达深度。
+2. 细节扩写：严禁流水账。必须通过环境侧写、动作微表情、心理活动、感官细节（视觉/听觉/嗅觉）进行扩写。
+3. 设定约束：男主-{st.session_state.ml_info}，女主-{st.session_state.fl_info}，背景-{st.session_state.bg_info}。
+4. 语言：必须使用精炼的简体中文，禁止出现任何 AI 惯用的总结性或提示性废话。
+【参考例文】：{st.session_state.pre_text}
 """
 
-model = genai.GenerativeModel('gemini-2.5-pro', system_instruction=system_prompt)
+model = genai.GenerativeModel('gemini-2.5-flash', system_instruction=system_prompt)
 
-# 5. 章节展示与续写
+# 展示记录
 for msg in st.session_state.chat_history:
     with st.chat_message("user" if msg["role"] == "user" else "assistant"):
-        st.write(msg["text"])
+        st.markdown(msg["text"])
 
-user_input = st.text_area("✨ 输入扩写/续写指令：", key="input")
-if st.button("✨ 立即创作"):
+# 创作与撤回区
+user_input = st.text_area("✨ 输入扩写/续写要求（例如：『写一段两人对视时的心理描写』）：", key="input_area")
+
+c1, c2, c3 = st.columns(3)
+if c1.button("✨ 立即创作"):
     if user_input:
-        chat = model.start_chat(history=[{"role": "user" if m["role"] == "user" else "model", "parts": [m["text"]]} for m in st.session_state.chat_history])
-        response = chat.send_message(user_input)
-        st.session_state.chat_history.append({"role": "user", "text": user_input})
-        st.session_state.chat_history.append({"role": "model", "text": response.text})
-        sync_data() # 自动存档
+        with st.status("正在进行深度构思...", expanded=True) as status:
+            chat = model.start_chat(history=[{"role": "user" if m["role"] == "user" else "model", "parts": [m["text"]]} for m in st.session_state.chat_history])
+            response = chat.send_message(user_input)
+            st.session_state.chat_history.append({"role": "user", "text": user_input})
+            st.session_state.chat_history.append({"role": "model", "text": response.text})
+            sync_data(st.session_state)
+            status.update(label="✅ 创作完成", state="complete")
         st.rerun()
 
-if st.button("🗑️ 清空所有记录"):
+if c2.button("↩️ 撤回上一段"):
+    if len(st.session_state.chat_history) >= 2:
+        st.session_state.chat_history = st.session_state.chat_history[:-2]
+        sync_data(st.session_state)
+        st.rerun()
+
+if c3.button("🗑️ 清空所有记录"):
     if os.path.exists(SAVE_FILE): os.remove(SAVE_FILE)
     st.session_state.chat_history = []
     st.rerun()
