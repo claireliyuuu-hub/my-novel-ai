@@ -768,20 +768,6 @@ for msg in st.session_state.chat_history[-10:]:
 
 
 
-# =====================
-# 创作
-# =====================
-
-
-prompt=st.text_area(
-    "✨ 输入剧情指令:",
-    key="input",
-    height=200
-)
-
-
-
-c1,c2=st.columns(2)
 
 
 
