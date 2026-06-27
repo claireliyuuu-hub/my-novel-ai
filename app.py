@@ -785,89 +785,48 @@ c1,c2=st.columns(2)
 
 
 
-if c1.button(
-    "✨立即创作"
-):
+# =====================
+# 创作区域 (已集成状态锁)
+# =====================
 
+# 确保状态锁初始化
+if "is_generating" not in st.session_state:
+    st.session_state.is_generating = False
 
-    if prompt:
+prompt = st.text_area("✨ 输入剧情指令:", key="input", height=200)
+c1, c2 = st.columns(2)
 
+if c1.button("✨立即创作"):
+    if not prompt:
+        st.warning("请输入指令！")
+    elif st.session_state.is_generating:
+        st.warning("正在创作中，请耐心等待...")
+    else:
+        st.session_state.is_generating = True
+        try:
+            # 整理历史记录
+            history = [{"role": m["role"], "parts": [m["text"]]} for m in st.session_state.chat_history[-5:]]
+            chat = model.start_chat(history=history)
+            
+            with st.spinner("正在创作..."):
+                response = safe_send(chat, prompt)
+                
+            if response:
+                text = response.text
+                st.session_state.chat_history.append({"role": "user", "text": prompt})
+                st.session_state.chat_history.append({"role": "model", "text": text})
 
-        history=[
+                # 处理档案更新逻辑
+                if "【档案更新】" in text:
+                    update = text.split("【档案更新】", 1)[1]
+                    st.session_state.bible_info += ("\n" + update)
 
-            {
-                "role":
-                m["role"],
-
-                "parts":
-                [
-                    m["text"]
-                ]
-
-            }
-
-            for m in st.session_state.chat_history[-5:]
-
-        ]
-
-
-        chat=model.start_chat(
-            history=history
-        )
-
-
-        with st.spinner(
-            "正在创作..."
-        ):
-
-
-            response=safe_send(
-                chat,
-                prompt
-            )
-
-
-        if response:
-
-
-            text=response.text
-
-
-            st.session_state.chat_history.append(
-                {
-                    "role":"user",
-                    "text":prompt
-                }
-            )
-
-
-            st.session_state.chat_history.append(
-                {
-                    "role":"model",
-                    "text":text
-                }
-            )
-
-
-
-            if "【档案更新】" in text:
-
-
-                update=text.split(
-                    "【档案更新】",
-                    1
-                )[1]
-
-
-                st.session_state.bible_info += (
-                    "\n"+update
-                )
-
-
-
-            sync_data()
-
-            st.rerun()
+                sync_data()
+                st.rerun() # 成功后刷新页面以显示新内容
+        except Exception as e:
+            st.error(f"创作过程出错: {e}")
+        finally:
+            st.session_state.is_generating = False # 确保无论成功失败，锁都会解锁
 
 
 
