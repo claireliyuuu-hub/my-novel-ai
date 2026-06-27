@@ -735,7 +735,7 @@ safety_settings = {
 
 # 重新初始化模型
 model = genai.GenerativeModel(
-    "gemini-2.5-flash", # 建议使用稳定版本，如 1.5-pro
+    "gemini-1.5-flash", # 建议使用稳定版本，如 1.5-pro
     system_instruction=system_prompt,
     safety_settings=safety_settings
 )
