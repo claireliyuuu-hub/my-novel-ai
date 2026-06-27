@@ -7,7 +7,7 @@ from docx import Document
 
 
 genai.configure(
-    api_key=AQ.Ab8RN6IfwYKDaabJ5YU-gpXGqc8cOGTeOPAnGLllk4r_
+    api_key=st.secrets["GEMINI_API_KEY"]
 )
 
 
