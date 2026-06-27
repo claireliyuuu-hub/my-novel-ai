@@ -1,4 +1,4 @@
-import streamlit as st
+“import streamlit as st
 import google.generativeai as genai
 import json
 import os
@@ -7,7 +7,7 @@ from docx import Document
 
 
 genai.configure(
-    api_key=st.secrets["GEMINI_API_KEY"]
+    api_key=AQ.Ab8RN6IfwYKDaabJ5YU-gpXGqc8cOGTeOPAnGLllk4r_
 )
 
 
