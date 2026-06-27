@@ -723,18 +723,23 @@ system_prompt=f"""
 
 
 
-# 找到这里并进行修改
+from google.generativeai.types import HarmCategory, HarmBlockThreshold
+
+# 修正后的安全配置定义
+safety_settings = {
+    HarmCategory.HARM_CATEGORY_HARASSMENT: HarmBlockThreshold.BLOCK_NONE,
+    HarmCategory.HARM_CATEGORY_HATE_SPEECH: HarmBlockThreshold.BLOCK_NONE,
+    HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT: HarmBlockThreshold.BLOCK_NONE,
+    HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT: HarmBlockThreshold.BLOCK_NONE,
+}
+
+# 重新初始化模型
 model = genai.GenerativeModel(
-    "gemini-2.5-flash", 
+    "gemini-2.5-pro", # 建议使用稳定版本，如 1.5-pro
     system_instruction=system_prompt,
-    # === 在这里加入安全配置 ===
-    safety_settings={
-        "HARASSMENT": "BLOCK_NONE",
-        "HATE_SPEECH": "BLOCK_NONE",
-        "SEXUALLY_EXPLICIT": "BLOCK_NONE",
-        "DANGEROUS_CONTENT": "BLOCK_NONE",
-    }
+    safety_settings=safety_settings
 )
+
 
 
 
