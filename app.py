@@ -175,7 +175,7 @@ def safe_send(chat,prompt):
                 )
 
                 time.sleep(
-                    (i+1)*8
+                    (i+1)*20
                 )
 
             else:
