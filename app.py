@@ -723,10 +723,19 @@ system_prompt=f"""
 
 
 
-model=genai.GenerativeModel(
-    "gemini-2.5-flash",
-    system_instruction=system_prompt
+# 找到这里并进行修改
+model = genai.GenerativeModel(
+    "gemini-2.5-flash", 
+    system_instruction=system_prompt,
+    # === 在这里加入安全配置 ===
+    safety_settings={
+        "HARASSMENT": "BLOCK_NONE",
+        "HATE_SPEECH": "BLOCK_NONE",
+        "SEXUALLY_EXPLICIT": "BLOCK_NONE",
+        "DANGEROUS_CONTENT": "BLOCK_NONE",
+    }
 )
+
 
 
 
